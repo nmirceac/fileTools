@@ -1,72 +1,113 @@
 <?php namespace FileTools;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\File as Filesystem;
-use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File as Filesystem;
 
-class File extends Model
+class File extends \Illuminate\Database\Eloquent\Model
 {
     /**
      * @var null
      */
     private $relationship = null;
 
-    protected $fillable = ['public'];
     public static $withPivot = ['order', 'role', 'details'];
     protected $appends = ['basename', 'details'];
 
+    protected static $backend = null;
+    protected static $root = null;
+
     /**
-     * Returns post relationship to files.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\MorphToMany
+     * @param $id
+     * @return \FileTools\File
      */
-    public function posts()
+    public static function find($id)
     {
-        return $this->morphedByMany(Post::class,
-            'association',
-            'image_associations',
-            'association_id',
-            'image_id'
-        )->withPivot(self::$withPivot);
+        return parent::query()->find($id);
     }
 
-    public static function getBackend()
+    /**
+     * Gets access to the FilesystemAdapter interface
+     * @return \Illuminate\Filesystem\FilesystemAdapter
+     * @throws \Exception
+     */
+    private static function getBackend()
     {
-        return \Storage::disk(config('filetools.backend'));
+        if(is_null(self::$backend)) {
+            $method = 'create'.ucfirst(strtolower(config('filetools.storage.backend'))).'Driver';
+            self::$backend = \Illuminate\Support\Facades\Storage::getFacadeRoot()->$method(config('filetools.'.config('filetools.storage.backend')));
+        }
+
+        if(is_null(self::$backend)) {
+            throw new \Exception('Backend configuration is invalid');
+        }
+
+        return self::$backend;
     }
 
+    /**
+     * Gets the app storage folder
+     * @return string
+     */
     public static function getRoot()
     {
-        return rtrim(config('filetools.root'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if(is_null(self::$root))
+        {
+            self::$root = rtrim(config('filetools.storage.root'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        }
+
+        return self::$root ;
     }
 
+    /**
+     * Gets the  storage file path
+     * @param $path
+     * @return string
+     */
     public static function getPath($path)
     {
         return self::getRoot() . ltrim($path, DIRECTORY_SEPARATOR);
     }
 
+    /**
+     * Sets the file name
+     * @param $name
+     */
     public function setNameAttribute($name)
     {
         $this->attributes['name'] = iconv(mb_detect_encoding($name, mb_detect_order(), true), "UTF-8//IGNORE", $name);
     }
 
+    /**
+     * Sets the file metadata
+     * @param $value
+     */
     public function setMetadataAttribute($value)
     {
         $this->attributes['metadata'] = json_encode($value);
     }
 
+    /**
+     * Gets the file metadata
+     * @return mixed
+     */
     public function getMetadataAttribute()
     {
         return json_decode($this->attributes['metadata']);
     }
 
+    /**
+     * Gets the file's basename
+     * @return string
+     */
     public function getBasenameAttribute()
     {
         return $this->name . '.' . $this->extension;
     }
 
+    /**
+     * Gets the file's details for the association
+     * @param $value
+     * @return mixed
+     */
     public function getDetailsAttribute($value)
     {
         if (isset($this->pivot['details'])) {
@@ -74,6 +115,10 @@ class File extends Model
         }
     }
 
+    /**
+     * Sets the file's details for the assocation
+     * @param $value
+     */
     public function setDetailsAttribute($value)
     {
         if (isset($this->pivot['details'])) {
@@ -81,6 +126,13 @@ class File extends Model
         }
     }
 
+    /**
+     * Creates a file
+     * @param array $metadata
+     * @param string|null $contents
+     * @return \FileTools\File
+     * @throws \Exception
+     */
     public static function create(array $metadata, string $contents = null)
     {
         $validator = \Validator::make($metadata, [
@@ -125,6 +177,12 @@ class File extends Model
         }
     }
 
+    /**
+     * Creates a file from path
+     * @param string $filePath
+     * @return \FileTools\File
+     * @throws \Exception
+     */
     public static function createFromPath(string $filePath)
     {
         if (!file_exists(($filePath))) {
@@ -148,20 +206,44 @@ class File extends Model
         return self::create($metadata, Filesystem::get($filePath));
     }
 
+    /**
+     * Gets the file's content
+     * @return mixed
+     */
     public function getContent()
     {
         return self::getBackend()->get(self::getPath($this->hash));
     }
 
+    /**
+     * Checks how many times a file is used within the application
+     * @return integer
+     */
+    public function usageCount()
+    {
+        return $this->getConnection()
+            ->table('file_associations')
+            ->where('file_id', $this->id)
+            ->count();
+    }
+
+    /**
+     * Checks if a file is in use
+     * @return bool
+     */
     public function inUse()
     {
-        if ($this->abstracts()->count() > 0) {
+        if ($this->usageCount() > 0) {
             return true;
         }
 
         return false;
     }
 
+    /**
+     * Try to delete a file
+     * @param $fileId
+     */
     public static function tryToDelete($fileId)
     {
         $file = self::find($fileId);
@@ -170,6 +252,11 @@ class File extends Model
         }
     }
 
+    /**
+     * Deleting a file
+     * @return bool|void|null
+     * @throws \Exception
+     */
     public function delete()
     {
         if (File::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
@@ -180,7 +267,13 @@ class File extends Model
         parent::delete();
     }
 
-
+    /**
+     * Create a file from a laravel request
+     * @param \Illuminate\Http\Request $request
+     * @param string $fileKey
+     * @return \FileTools\File|\Illuminate\Http\JsonResponse
+     * @throws \Exception
+     */
     public static function createFromRequest(\Illuminate\Http\Request $request, $fileKey = 'file')
     {
         if (!$request->hasFile($fileKey)) {
@@ -208,11 +301,20 @@ class File extends Model
         return self::create($metadata, $contents);
     }
 
+    /**
+     * Finds a file by hash
+     * @param $hash
+     * @return mixed
+     */
     public static function getByHash($hash)
     {
         return File::where('hash', $hash)->first();
     }
 
+    /**
+     * Serve a file (inline)
+     * @return mixed
+     */
     public function serve()
     {
         return response($this->getContent())
@@ -222,6 +324,10 @@ class File extends Model
             ->header('Content-Disposition', 'inline; filename="' . $this->basename . '"');
     }
 
+    /**
+     * Serve a file (download)
+     * @return mixed
+     */
     public function serveForceDownload()
     {
         return response($this->getContent())
@@ -231,12 +337,19 @@ class File extends Model
             ->header('Content-Disposition', 'attachment; filename="' . $this->basename . '"');
     }
 
+    /**
+     * Get the file's public URL
+     * @return mixed
+     */
     public function getPublicUrl()
     {
         $this->checkPublic();
         return self::getBackend()->url(self::getPath($this->hash));
     }
 
+    /**
+     * Makes sure the file is public
+     */
     public function checkPublic()
     {
         if (!$this->public) {
@@ -244,38 +357,61 @@ class File extends Model
         }
     }
 
+    /**
+     * Get's the file's visibiliy (public or private)
+     * @return mixed
+     */
     public function getVisibility()
     {
         $visibility = self::getBackend()->getVisibility(self::getPath($this->hash));
         if ($visibility == 'public') {
-            $this->update(['public' => true]);
+            $this->public = true;
         } else {
-            $this->update(['public' => false]);
+            $this->public = false;
         }
+        $this->save();
         return $visibility;
     }
 
+    /**
+     * Sets the file's visibility (public or private)
+     * @param string $visibility
+     * @return $this
+     */
     public function setVisibility($visibility = 'private')
     {
         self::getBackend()->setVisibility(self::getPath($this->hash), $visibility);
         if ($visibility == 'public') {
-            $this->update(['public' => true]);
+            $this->public = true;
         } else {
-            $this->update(['public' => false]);
+            $this->public = true;
         }
+        $this->save();
         return $this;
     }
 
+    /**
+     * Makes a file public
+     */
     public function makePublic()
     {
         $this->setVisibility('public');
     }
 
+    /**
+     * Makes a file private
+     */
     public function makePrivate()
     {
         $this->setVisibility('private');
     }
 
+    /**
+     * Gets the private, temporary url for a file
+     * @param int $expiryMinutes
+     * @param array $options
+     * @return mixed
+     */
     public function getUrl($expiryMinutes = 600, $options = [])
     {
         if (!isset($options['ResponseContentType'])) {
@@ -293,6 +429,12 @@ class File extends Model
         return self::getBackend()->temporaryUrl(self::getPath($this->hash), '+' . $expiryMinutes . ' minutes', $options);
     }
 
+    /**
+     * Gets the private, temporary download url for a file
+     * @param int $expiryMinutes
+     * @param array $options
+     * @return mixed
+     */
     public function downloadUrl($expiryMinutes = 600, $options = [])
     {
         $options['ResponseContentDisposition'] = 'attachment; filename="' . $this->basename . '"';
@@ -300,18 +442,19 @@ class File extends Model
         return $this->getUrl($expiryMinutes, $options);
     }
 
-    public function products()
-    {
-        return $this->morphedByMany(Product::class, 'association', 'file_associations')->withPivot(self::$withPivot);
-    }
-
+    /**
+     * Check the relationship to a model
+     * @param $model
+     * @return |null
+     * @throws \Exception
+     */
     private function checkRelationship($model)
     {
         if (is_null($this->relationship)) {
             $modelName = get_class($model);
             $modelName = strtolower(substr($modelName, 1 + strrpos($modelName, '\\')));
 
-            if (!method_exists($this, $modelName) and !method_exists($this, Str::plural($modelName))) {
+            if (!method_exists($this, $modelName) and !method_exists($this, \Illuminate\Support\Str::plural($modelName))) {
                 throw new \Exception(self::class . ' missing relationship to model of type ' . get_class($model));
             }
 
@@ -326,6 +469,15 @@ class File extends Model
         return $this->relationship;
     }
 
+    /**
+     * Attach a file to a related model
+     * @param $model
+     * @param string $role
+     * @param int $order
+     * @param array $details
+     * @return mixed
+     * @throws \Exception
+     */
     public function attach($model, $role = 'files', $order = 0, $details = [])
     {
         $relationship = $this->checkRelationship($model);
