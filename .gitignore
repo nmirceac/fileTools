@@ -1,0 +1,9 @@
+composer.phar
+composer.lock
+/samples/
+/images-test/
+/store_test
+/public_test
+/vendor/
+.idea
+

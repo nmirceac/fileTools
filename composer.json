@@ -1,0 +1,33 @@
+{
+    "name": "nmirceac/file-tools",
+    "type": "library",
+    "description": "File Tools for Laravel",
+    "keywords": ["files","fileTools","image","digital ocean spaces","s3","laravel","laravel files"],
+    "homepage": "https://github.com/nmirceac/filesTools",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Mircea Nicolae",
+            "email": "mircea@nicolae.co.za",
+            "homepage": "https://github.com/nmirceac",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "league/flysystem-aws-s3-v3": "^1.0",
+        "phpunit/phpunit": "6 - 8"
+    },
+    "autoload": {
+        "psr-4": {
+            "FileTools\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "FileTools\\FileToolsServiceProvider"
+            ]
+        }
+    }
+}
