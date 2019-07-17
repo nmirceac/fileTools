@@ -1,6 +1,6 @@
 <?php
 
-namespace ColorTools\Commands;
+namespace FileTools\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
@@ -8,8 +8,8 @@ use Illuminate\Console\ConfirmableTrait;
 class ConfigCommand extends Command
 {
     use ConfirmableTrait;
-    protected $signature = 'colortools:config';
-    protected $description = 'Show ColorTools config';
+    protected $signature = 'filetools:config';
+    protected $description = 'Show FileTools config';
 
     public function __construct()
     {
@@ -18,7 +18,7 @@ class ConfigCommand extends Command
 
     public function handle()
     {
-        $config = config('colortools');
+        $config = config('filetools');
         if(!empty($config)) {
             $this->info('--- Config found  ---');
             foreach($config as $param=>$value) {

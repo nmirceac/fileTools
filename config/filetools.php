@@ -1,6 +1,15 @@
 <?php
 
 return [
+    'router'=> [
+        'includeRoutes'=>true,
+        'returnRelativeUrls'=>true,
+        'prefix'=>'files',
+        'namedPrefix'=>'file',
+        'guestMiddleware'=>'web',
+        'authMiddleware'=>'auth'
+    ],
+
     'backend' => env('FILE_STORAGE_BACKEND', 's3'),
     'root' => env('FILE_STORAGE_ROOT', 'app'),
 

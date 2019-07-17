@@ -1,6 +1,6 @@
 <?php
 
-namespace ColorTools\Commands;
+namespace FileTools\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
@@ -8,8 +8,8 @@ use Illuminate\Console\ConfirmableTrait;
 class SetupCommand extends Command
 {
     use ConfirmableTrait;
-    protected $signature = 'colortools:setup';
-    protected $description = 'Setup ColorTools folder structure';
+    protected $signature = 'filetools:setup';
+    protected $description = 'Setup FileTools folder structure';
 
     public function __construct()
     {
@@ -18,6 +18,7 @@ class SetupCommand extends Command
 
     public function handle()
     {
+        exit();
         $config = config('colortools');
         if(empty($config)) {
             $this->error('Config not found');

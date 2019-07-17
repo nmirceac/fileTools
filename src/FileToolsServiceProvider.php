@@ -13,14 +13,11 @@ class FileToolsServiceProvider extends ServiceProvider
      */
     public function boot(\Illuminate\Routing\Router $router)
     {
-        \FileTools\Store::settings(config('filetools.store'));
-        \FileTools\Image::settings(config('filetools.image'));
-
         if(config('filetools.router.includeRoutes')) {
             $router->prefix(config('filetools.router.prefix'))
                 ->namespace('FileTools\Http\Controllers')
                 ->middleware(config('filetools.router.guestMiddleware'))
-                    ->group(__DIR__.'/Http/routes.php');
+                ->group(__DIR__.'/Http/routes.php');
         }
 
         $argv = $this->app->request->server->get('argv');
@@ -29,14 +26,14 @@ class FileToolsServiceProvider extends ServiceProvider
                 __DIR__.'/../config/filetools.php' => config_path('filetools.php'),
             ], 'config');
             $this->publishes([
-                __DIR__.'/ImageStore.stub.php' => app_path('ImageStore.php'),
+                __DIR__.'/File.stub.php' => app_path('File.php'),
             ], 'model');
 
-            $existing = glob(database_path('migrations/*_create_images_table.php'));
+            $existing = glob(database_path('migrations/*_create_files_table.php'));
             if(empty($existing)) {
                 $this->publishes([
-                    __DIR__.'/../database/migrations/create_images_table.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()).'_create_images_table.php'),
-                    __DIR__.'/../database/migrations/create_image_associations_pivot.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()+1).'_create_image_associations_pivot.php'),
+                    __DIR__.'/../database/migrations/create_files_table.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()).'_create_files_table.php'),
+                    __DIR__.'/../database/migrations/create_file_associations_pivot.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()+1).'_create_file_associations_pivot.php'),
                 ], 'migrations');
             }
         }
@@ -57,14 +54,12 @@ class FileToolsServiceProvider extends ServiceProvider
         $this->app->bind('command.filetools:config', Commands\ConfigCommand::class);
         $this->app->bind('command.filetools:setup', Commands\SetupCommand::class);
         $this->app->bind('command.filetools:clean', Commands\CleanCommand::class);
-        $this->app->bind('command.filetools:optimize', Commands\OptimizeCommand::class);
 
         $this->commands([
             'command.filetools:stats',
             'command.filetools:config',
             'command.filetools:setup',
             'command.filetools:clean',
-            'command.filetools:optimize',
         ]);
 
     }

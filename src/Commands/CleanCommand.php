@@ -1,15 +1,15 @@
 <?php
 
-namespace ColorTools\Commands;
+namespace FileTools\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
-use \App\ImageStore;
+use \App\File;
 
 class CleanCommand extends Command
 {
     use ConfirmableTrait;
-    protected $signature = 'colortools:clean {--delete} {--deletePublished}';
+    protected $signature = 'filetools:clean {--delete}';
     protected $description = 'Spring cleaning';
 
     public function __construct()
@@ -19,6 +19,7 @@ class CleanCommand extends Command
 
     public function handle()
     {
+        exit();
         $images = ImageStore::count();
         $this->info($images.' '.str_plural('image', $images).' found with a total size of '.number_format(ImageStore::sum('size')/1024/1024, 2).'MB');
 
