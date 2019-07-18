@@ -21,6 +21,7 @@ class CreateFilesTable extends Migration
             $table->string('mime', 127)->index();
             $table->integer('size')->unsigned();
             $table->boolean('public')->default(false)->index();
+            $table->boolean('hidden')->default(false)->index();
             $table->text('metadata');
             $table->timestamps();
         });

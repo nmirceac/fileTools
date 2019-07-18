@@ -155,7 +155,7 @@ class File extends \Illuminate\Database\Eloquent\Model
             return $file;
         }
 
-        $file = new File();
+        $file = new static();
         $file->hash = $metadata['hash'];
         $file->name = $metadata['name'];
         $file->extension = $metadata['extension'];
@@ -361,7 +361,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      * Get's the file's visibiliy (public or private)
      * @return mixed
      */
-    public function getVisibility()
+    public function getPublicVisibility()
     {
         $visibility = self::getBackend()->getVisibility(self::getPath($this->hash));
         if ($visibility == 'public') {
@@ -378,7 +378,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      * @param string $visibility
      * @return $this
      */
-    public function setVisibility($visibility = 'private')
+    public function setPublicVisibility($visibility = 'private')
     {
         self::getBackend()->setVisibility(self::getPath($this->hash), $visibility);
         if ($visibility == 'public') {
@@ -392,18 +392,44 @@ class File extends \Illuminate\Database\Eloquent\Model
 
     /**
      * Makes a file public
+     * @return $this
      */
     public function makePublic()
     {
-        $this->setVisibility('public');
+        $this->setPublicVisibility('public');
+        return $this;
     }
 
     /**
      * Makes a file private
+     * @return $this
      */
     public function makePrivate()
     {
-        $this->setVisibility('private');
+        $this->setPublicVisibility('private');
+        return $this;
+    }
+
+    /**
+     * Marks a file as hidden
+     * @return $this
+     */
+    public function hide()
+    {
+        $this->hidden = 1;
+        $this->save();
+        return $this;
+    }
+
+    /**
+     * Unmarks a hidden file
+     * @return $this
+     */
+    public function unhide()
+    {
+        $this->hidden = 0;
+        $this->save();
+        return $this;
     }
 
     /**
