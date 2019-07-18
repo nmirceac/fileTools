@@ -44,6 +44,18 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Clears the storage all the files, metadata and associations
+     * @throws \Exception
+     */
+    public static function clearAll()
+    {
+        self::getBackend()->deleteDirectory(self::getPath(''));
+        foreach(static::all() as $file) {
+            $file->delete(true);
+        }
+    }
+
+    /**
      * Gets the app storage folder
      * @return string
      */
@@ -257,9 +269,9 @@ class File extends \Illuminate\Database\Eloquent\Model
      * @return bool|void|null
      * @throws \Exception
      */
-    public function delete()
+    public function delete($skipChecks = false)
     {
-        if (File::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
+        if (!$skipChecks && static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
             if (self::getBackend()->has(self::getPath($this->hash))) {
                 self::getBackend()->delete(self::getPath($this->hash));
             }
@@ -416,7 +428,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function hide()
     {
-        $this->hidden = 1;
+        $this->attributes['hidden'] = true;
         $this->save();
         return $this;
     }
@@ -427,7 +439,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function unhide()
     {
-        $this->hidden = 0;
+        $this->attributes['hidden'] = false;
         $this->save();
         return $this;
     }
