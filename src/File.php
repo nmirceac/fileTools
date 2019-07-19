@@ -314,13 +314,13 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Finds a file by hash
+     * Gets file by hash
      * @param $hash
      * @return mixed
      */
     public static function getByHash($hash)
     {
-        return File::where('hash', $hash)->first();
+        return static::where('hash', $hash)->get();
     }
 
     /**
