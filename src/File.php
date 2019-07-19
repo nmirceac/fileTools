@@ -162,11 +162,6 @@ class File extends \Illuminate\Database\Eloquent\Model
             throw new \Exception('Contents is empty');
         }
 
-        $file = self::getByHash($metadata['hash']);
-        if (!is_null($file)) {
-            return $file;
-        }
-
         $file = new static();
         $file->hash = $metadata['hash'];
         $file->name = $metadata['name'];
