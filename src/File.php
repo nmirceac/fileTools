@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\File as Filesystem;
 
+/**
+ * Class File
+ * @package FileTools
+ */
 class File extends \Illuminate\Database\Eloquent\Model
 {
     /**
@@ -16,6 +20,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     protected static $root = null;
 
     /**
+     * Finds a file by id
      * @param $id
      * @return \FileTools\File
      */
@@ -248,7 +253,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Try to delete a file
+     * Tries to delete a file after a detach opeartion, if not in use somewhere else
      * @param $fileId
      */
     public static function tryToDelete($fileId)
@@ -260,8 +265,8 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Deleting a file
-     * @return bool|void|null
+     * Deletes a file
+     * @return bool
      * @throws \Exception
      */
     public function delete($skipChecks = false)
@@ -271,7 +276,7 @@ class File extends \Illuminate\Database\Eloquent\Model
                 self::getBackend()->delete(self::getPath($this->hash));
             }
         }
-        parent::delete();
+        return parent::delete();
     }
 
     /**
@@ -319,7 +324,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Serve a file (inline)
+     * Serves a file (inline)
      * @return mixed
      */
     public function serve()
@@ -332,7 +337,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Serve a file (download)
+     * Serves a file (download)
      * @return mixed
      */
     public function serveForceDownload()
@@ -476,7 +481,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Check the relationship to a model
+     * Checks the relation ship with the associated attaching model
      * @param $model
      * @return |null
      * @throws \Exception
@@ -503,7 +508,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Attach a file to a related model
+     * Attaches a file to a related model
      * @param $model
      * @param string $role
      * @param int $order
@@ -575,5 +580,54 @@ class File extends \Illuminate\Database\Eloquent\Model
         $relationship->syncWithoutDetaching($models);
 
         return $relationship->where('id', $this->id)->first();
+    }
+
+    /**
+     * Replaces a file for a specific role for an attached model
+     * @param $model
+     * @param string $role
+     * @param array $details
+     * @param bool $deleteReplaced
+     * @return mixed
+     * @throws \Exception
+     */
+    public function set($model, $role='files', $details=[], $deleteReplaced = false)
+    {
+        $relationship = $this->checkRelationship($model);
+        $this->clear($model, $role, $deleteReplaced);
+
+        if(!isset($details['name'])) {
+            $details['name'] = $this->name;
+        }
+
+        $pivotDetails = [
+            'order'=>1,
+            'role'=>$role,
+            'details'=>json_encode($details)
+        ];
+
+        $relationship->attach($this->id, $pivotDetails);
+
+        return $relationship->where('id', $this->id)->first();
+    }
+
+    /**
+     * Clears all files for a specific role for an attached model
+     * @param $model
+     * @param string $role
+     * @param bool $deleteReplaced
+     * @throws \Exception
+     */
+    public function clear($model, $role='files', $deleteReplaced = false)
+    {
+        $relationship = $this->checkRelationship($model);
+
+        if($deleteReplaced) {
+            $relationship->wherePivot('role', $role)->delete();
+        } else {
+            $relationship->wherePivot('role', $role)->detach();
+        }
+
+        $model->reorderFilesByRole([], $role);
     }
 }
