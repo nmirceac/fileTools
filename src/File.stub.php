@@ -2,5 +2,6 @@
 
 
 class File extends \FileTools\File {
+    public $appends = ['basename', 'details'];
 
 }

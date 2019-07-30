@@ -219,6 +219,159 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Create a file from a laravel request
+     * @param \Illuminate\Http\Request $request
+     * @param string $fileKey
+     * @return \FileTools\File|\Illuminate\Http\JsonResponse
+     * @throws \Exception
+     */
+    public static function createFromRequest(\Illuminate\Http\Request $request, $fileKey = 'file')
+    {
+        if (!$request->hasFile($fileKey)) {
+            return response()->json([
+                'error' => 'Missing file'
+            ]);
+        }
+
+        $fileInfo = $request->file($fileKey);
+
+        $metadata['mime'] = $fileInfo->getMimeType();
+        $metadata['name'] = $fileInfo->getClientOriginalName();
+        $metadata['basename'] = $fileInfo->getClientOriginalName();
+        $metadata['extension'] = $fileInfo->getClientOriginalExtension();
+        $metadata['size'] = $fileInfo->getSize();
+        $metadata['originalPath'] = $fileInfo->getRealPath();
+        $metadata['hash'] = md5_file($metadata['originalPath']);
+
+        if (!empty($metadata['extension'])) {
+            $metadata['name'] = substr($metadata['name'], 0, -(1 + strlen($metadata['extension'])));
+        }
+
+        $contents = file_get_contents($fileInfo->getRealPath());
+
+        return self::create($metadata, $contents);
+    }
+
+    /**
+     * Replaces a file
+     * @param array $metadata
+     * @param string|null $contents
+     * @return \FileTools\File
+     * @throws \Exception
+     */
+    public function replace(array $metadata, string $contents = null)
+    {
+        $validator = \Validator::make($metadata, [
+            'hash' => 'required|string|size:32',
+            'name' => 'required|string',
+            'mime' => 'required|string',
+            'size' => 'required|numeric'
+        ]);
+
+        if ($validator->fails()) {
+            throw new \Exception($validator->errors());
+        }
+
+        if (empty($contents)) {
+            throw new \Exception('Contents is empty');
+        }
+
+        $oldHash = $this->hash;
+
+        $this->hash = $metadata['hash'];
+        $this->name = $metadata['name'];
+        $this->extension = $metadata['extension'];
+        $this->mime = $metadata['mime'];
+        $this->size = $metadata['size'];
+        $this->metadata = $metadata;
+
+        $inStore = self::getBackend()->has(self::getPath($this->hash));
+
+        if (!$inStore) {
+            $inStore = self::getBackend()->put(self::getPath($this->hash), $contents);
+        }
+
+        if ($inStore) {
+            $this->save();
+
+            if (static::where('hash', $oldHash)->count() == 0) {
+                self::deleteFromBackend($oldHash);
+            }
+
+            return $this;
+        } else {
+            throw new \Exception('There was a problem with storing the file: ' . json_encode($metadata));
+        }
+    }
+
+
+    /**
+     * Replaces a file from path
+     * @param string $filePath
+     * @return \FileTools\File
+     * @throws \Exception
+     */
+    public function replaceFromPath(string $filePath)
+    {
+        if (!file_exists(($filePath))) {
+            throw new \Exception('File not found at path ' . $filePath . ' (' . base_path($filePath) . ')');
+        }
+
+        if (is_dir(($filePath))) {
+            throw new \Exception('The path ' . $filePath . ' resolves to a directory, not to a file');
+        }
+
+        $metadata['mime'] = Filesystem::mimeType($filePath);
+        $metadata['name'] = Filesystem::name($filePath);
+        $metadata['dirname'] = Filesystem::dirname($filePath);
+        $metadata['basename'] = Filesystem::basename($filePath);
+        $metadata['extension'] = Filesystem::extension($filePath);
+        $metadata['size'] = Filesystem::size($filePath);
+        $metadata['lastModified'] = Filesystem::lastModified($filePath);
+        $metadata['originalPath'] = $filePath;
+        $metadata['hash'] = Filesystem::hash($filePath);
+
+        return $this->replace($metadata, Filesystem::get($filePath));
+    }
+
+    /**
+     * Replace a file from a laravel request
+     * @param \Illuminate\Http\Request $request
+     * @param string $fileKey
+     * @return \FileTools\File|\Illuminate\Http\JsonResponse
+     * @throws \Exception
+     */
+    public function replaceFromRequest(\Illuminate\Http\Request $request, $fileKey = 'file')
+    {
+        if (!$request->hasFile($fileKey)) {
+            return response()->json([
+                'error' => 'Missing file'
+            ]);
+        }
+
+        $fileInfo = $request->file($fileKey);
+
+        $metadata['mime'] = $fileInfo->getMimeType();
+        $metadata['name'] = $fileInfo->getClientOriginalName();
+        $metadata['basename'] = $fileInfo->getClientOriginalName();
+        $metadata['extension'] = $fileInfo->getClientOriginalExtension();
+        $metadata['size'] = $fileInfo->getSize();
+        $metadata['originalPath'] = $fileInfo->getRealPath();
+        $metadata['hash'] = md5_file($metadata['originalPath']);
+
+        if (!empty($metadata['extension'])) {
+            $metadata['name'] = substr($metadata['name'], 0, -(1 + strlen($metadata['extension'])));
+        }
+
+        $contents = file_get_contents($fileInfo->getRealPath());
+
+        return $this->replace($metadata, $contents);
+    }
+
+
+
+
+    /**
      * Gets the file's content
      * @return mixed
      */
@@ -253,7 +406,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
-     * Tries to delete a file after a detach opeartion, if not in use somewhere else
+     * Tries to delete a file after a detach operation, if not in use somewhere else
      * @param $fileId
      */
     public static function tryToDelete($fileId)
@@ -272,45 +425,16 @@ class File extends \Illuminate\Database\Eloquent\Model
     public function delete($skipChecks = false)
     {
         if (!$skipChecks && static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
-            if (self::getBackend()->has(self::getPath($this->hash))) {
-                self::getBackend()->delete(self::getPath($this->hash));
-            }
+            self::deleteFromBackend($this->hash);
         }
         return parent::delete();
     }
 
-    /**
-     * Create a file from a laravel request
-     * @param \Illuminate\Http\Request $request
-     * @param string $fileKey
-     * @return \FileTools\File|\Illuminate\Http\JsonResponse
-     * @throws \Exception
-     */
-    public static function createFromRequest(\Illuminate\Http\Request $request, $fileKey = 'file')
+    private static function deleteFromBackend($hash)
     {
-        if (!$request->hasFile($fileKey)) {
-            return response()->json([
-                'error' => 'Missing file'
-            ]);
+        if (self::getBackend()->has(self::getPath($hash))) {
+            self::getBackend()->delete(self::getPath($hash));
         }
-
-        $fileInfo = $request->file($fileKey);
-
-        $metadata['mime'] = $fileInfo->getMimeType();
-        $metadata['name'] = $fileInfo->getClientOriginalName();
-        $metadata['basename'] = $fileInfo->getClientOriginalName();
-        $metadata['extension'] = $fileInfo->getClientOriginalExtension();
-        $metadata['size'] = $fileInfo->getSize();
-        $metadata['originalPath'] = $fileInfo->getRealPath();
-        $metadata['hash'] = md5_file($metadata['originalPath']);
-
-        if (!empty($metadata['extension'])) {
-            $metadata['name'] = substr($metadata['name'], 0, -(1 + strlen($metadata['extension'])));
-        }
-
-        $contents = file_get_contents($fileInfo->getRealPath());
-
-        return self::create($metadata, $contents);
     }
 
     /**
