@@ -39,7 +39,7 @@ class FilesController extends \App\Http\Controllers\Controller
             }
         }
 
-        return response()->json([$this->itemName => $file]);
+        return response()->json(['file' => $file]);
     }
 
     public function attach()
@@ -61,7 +61,7 @@ class FilesController extends \App\Http\Controllers\Controller
             }
         }
 
-        return response()->json([$this->itemName => $file]);
+        return response()->json(['file' => $file]);
     }
 
     public function delete()
@@ -111,7 +111,7 @@ class FilesController extends \App\Http\Controllers\Controller
         $newFile->metadata = $fileMeta;
         $newFile->update();
 
-        return response()->json([$this->itemName => $newFile]);
+        return response()->json(['file' => $newFile]);
     }
 
     public function update()
@@ -130,7 +130,7 @@ class FilesController extends \App\Http\Controllers\Controller
 
         $file->log(Log::LOG_FILE_UPDATED);
 
-        return response()->json([$this->itemName => $file]);
+        return response()->json(['file' => $file]);
     }
 
     public function reorder()
