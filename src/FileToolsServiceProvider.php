@@ -24,17 +24,17 @@ class FileToolsServiceProvider extends ServiceProvider
         if(isset($argv[1]) and $argv[1]=='vendor:publish') {
             $this->publishes([
                 __DIR__.'/../config/filetools.php' => config_path('filetools.php'),
-            ], 'config');
+            ], ['config', 'filetools', 'adminify']);
             $this->publishes([
                 __DIR__.'/File.stub.php' => app_path('File.php'),
-            ], 'model');
+            ], ['model', 'filetools', 'adminify']);
 
             $existing = glob(database_path('migrations/*_create_files_table.php'));
             if(empty($existing)) {
                 $this->publishes([
                     __DIR__.'/../database/migrations/create_files_table.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()).'_create_files_table.php'),
                     __DIR__.'/../database/migrations/create_file_associations_pivot.stub.php' => database_path('migrations/'.date('Y_m_d_His', time()+1).'_create_file_associations_pivot.php'),
-                ], 'migrations');
+                ], ['migrations', 'filetools', 'adminify']);
             }
         }
     }
@@ -46,9 +46,7 @@ class FileToolsServiceProvider extends ServiceProvider
      */
     public function register()
     {
-
         $this->mergeConfigFrom(__DIR__.'/../config/filetools.php', 'filetools');
-
 
         $this->app->bind('command.filetools:stats', Commands\StatsCommand::class);
         $this->app->bind('command.filetools:config', Commands\ConfigCommand::class);
@@ -63,5 +61,4 @@ class FileToolsServiceProvider extends ServiceProvider
         ]);
 
     }
-
 }
