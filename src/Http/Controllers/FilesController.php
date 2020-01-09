@@ -140,6 +140,7 @@ class FilesController extends \App\Http\Controllers\Controller
         $object = $model->find(request('modelId'));
         $object->reorderFilesByRole(request('ids'), request('role'));
     }
+
     public function associations()
     {
         $model = '\\App\\' . ucfirst(request('model'));
@@ -153,6 +154,71 @@ class FilesController extends \App\Http\Controllers\Controller
         //} else {
         //    return response()->json(['images' => []]);
         //}
+    }
+
+    public function public()
+    {
+        $file = \App\File::findOrFail(request('id'));
+        if($file) {
+            return response()->json(['public'=>true, 'url' => $file->getPublicUrl()]);
+        }
+    }
+
+    public function private()
+    {
+        $file = \App\File::findOrFail(request('id'));
+        if($file) {
+            $file->makePrivate();
+            return response()->json(['public'=>false]);
+        }
+    }
+
+    public function togglePublic()
+    {
+        $file = \App\File::findOrFail(request('id'));
+
+        if($file) {
+            if($file->public) {
+                $file = $file->makePrivate();
+            } else {
+                $file = $file->makePublic();
+            }
+
+            return response()->json(['public'=>$file->public]);
+        }
+    }
+
+
+    public function unhide()
+    {
+        $file = \App\File::findOrFail(request('id'));
+        if($file) {
+            $file->unhide();
+            return response()->json(['hidden'=>false]);
+        }
+    }
+
+    public function hide()
+    {
+        $file = \App\File::findOrFail(request('id'));
+        if($file) {
+            $file->hide();
+            return response()->json(['hidden'=>true]);
+        }
+    }
+
+    public function toggleHidden()
+    {
+        $file = \App\File::findOrFail(request('id'));
+        if($file) {
+            if($file->isHidden()) {
+                $file = $file->unhide();
+            } else {
+                $file = $file->hide();
+            }
+
+            return response()->json(['hidden'=>$file->isHidden()]);
+        }
     }
 }
 

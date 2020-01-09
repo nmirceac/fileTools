@@ -569,6 +569,15 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Checks if a file is hidden
+     * @return $this
+     */
+    public function isHidden()
+    {
+        return $this->attributes['hidden'];
+    }
+
+    /**
      * Gets the private, temporary url for a file
      * @param int $expiryMinutes
      * @param array $options
