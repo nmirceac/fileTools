@@ -128,8 +128,6 @@ class FilesController extends \App\Http\Controllers\Controller
             $file->update();
         }
 
-        $file->log(Log::LOG_FILE_UPDATED);
-
         return response()->json(['file' => $file]);
     }
 
@@ -179,12 +177,12 @@ class FilesController extends \App\Http\Controllers\Controller
 
         if($file) {
             if($file->public) {
-                $file = $file->makePrivate();
+                $file->makePrivate();
+                return response()->json(['public'=>false]);
             } else {
-                $file = $file->makePublic();
+                $file->makePublic();
+                return response()->json(['public'=>true]);
             }
-
-            return response()->json(['public'=>$file->public]);
         }
     }
 
@@ -212,12 +210,12 @@ class FilesController extends \App\Http\Controllers\Controller
         $file = \App\File::findOrFail(request('id'));
         if($file) {
             if($file->isHidden()) {
-                $file = $file->unhide();
+                $file->unhide();
+                return response()->json(['hidden'=>false]);
             } else {
-                $file = $file->hide();
+                $file->hide();
+                return response()->json(['hidden'=>true]);
             }
-
-            return response()->json(['hidden'=>$file->isHidden()]);
         }
     }
 }
