@@ -9,4 +9,5 @@ $router->group(['middleware' => config('filetools.router.authMiddleware')], func
     $router->post('/replace', ['uses' => 'FilesController@replace', 'as' => config('filetools.router.namedPrefix').'.replace']);
     $router->post('/update', ['uses' => 'FilesController@update', 'as' => config('filetools.router.namedPrefix').'.update']);
     $router->post('/reorder', ['uses' => 'FilesController@reorder', 'as' => config('filetools.router.namedPrefix').'.reorder']);
+    $router->post('/associations', ['uses'=>'FilesController@associations', 'as'=>config('filetools.router.namedPrefix').'.associations']);
 });

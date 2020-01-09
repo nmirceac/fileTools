@@ -140,5 +140,19 @@ class FilesController extends \App\Http\Controllers\Controller
         $object = $model->find(request('modelId'));
         $object->reorderFilesByRole(request('ids'), request('role'));
     }
+    public function associations()
+    {
+        $model = '\\App\\' . ucfirst(request('model'));
+        $model = new $model;
+        $object = $model->find(request('modelId'));
+
+        //$traits = (new \ReflectionClass($object))->getTraits();
+        //
+        //if(!is_null($object) and array_key_exists('ColorTools\HasImages', $traits)) {
+            return response()->json(['files' => $object->files]);
+        //} else {
+        //    return response()->json(['images' => []]);
+        //}
+    }
 }
 
