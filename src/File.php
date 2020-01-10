@@ -520,7 +520,7 @@ class File extends \Illuminate\Database\Eloquent\Model
         if ($visibility == 'public') {
             $this->public = true;
         } else {
-            $this->public = true;
+            $this->public = false;
         }
         $this->save();
         return $this;
