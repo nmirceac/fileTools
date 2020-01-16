@@ -18,7 +18,7 @@ class CreateFileassociationsPivot extends Migration
             $table->foreign('file_id')->references('id')->on('files')->onDelete('cascade');
             $table->integer('association_id')->unsigned()->index();
             $table->string('association_type', 24)->index();
-            $table->tinyInteger('order')->unsigned()->index();
+            $table->smallInteger('order')->unsigned()->index();
             $table->string('role', 32)->index();
             $table->mediumText('details');
             $table->primary(['file_id', 'association_id', 'association_type'], 'file_associations');
