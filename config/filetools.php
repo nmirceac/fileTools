@@ -23,6 +23,12 @@ return [
         'bucket' => env('FILE_S3_BUCKET'),
         'endpoint' => env('FILE_S3_URL'),
         'root' => env('FILE_S3_ROOT', env('APP_NAME', 'app').'-storage')
+    ],
+
+    'azure' => [
+        'driver' => 'azure',
+        'connection' => env('FILE_AZURE_CONNECTION_STRING'),
+        'root' => env('FILE_AZURE_ROOT', env('APP_NAME', 'app').'-storage')
     ]
 ];
 

@@ -37,8 +37,17 @@ class File extends \Illuminate\Database\Eloquent\Model
     private static function getBackend()
     {
         if(is_null(self::$backend)) {
-            $method = 'create'.ucfirst(strtolower(config('filetools.storage.backend'))).'Driver';
-            self::$backend = \Illuminate\Support\Facades\Storage::getFacadeRoot()->$method(config('filetools.'.config('filetools.storage.backend')));
+            if(strtolower(config('filetools.storage.backend'))=='s3') {
+                $method = 'create'.ucfirst(strtolower(config('filetools.storage.backend'))).'Driver';
+                self::$backend = \Illuminate\Support\Facades\Storage::getFacadeRoot()->$method(config('filetools.'.config('filetools.storage.backend')));
+            }
+
+            if(strtolower(config('filetools.storage.backend'))=='azure') {
+                $client = \MicrosoftAzure\Storage\Blob\BlobRestProxy::createBlobService(config('filetools.azure.connection'));
+                $adapter = new \League\Flysystem\AzureBlobStorage\AzureBlobStorageAdapter($client, config('filetools.azure.root'));
+                $filesystem = new \League\Flysystem\Filesystem($adapter);
+                self::$backend = $filesystem;
+            }
         }
 
         if(is_null(self::$backend)) {
@@ -377,6 +386,9 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function getContent()
     {
+        if(strtolower(config('filetools.storage.backend'))=='azure') {
+            return self::getBackend()->get(self::getPath($this->hash))->read();
+        }
         return self::getBackend()->get(self::getPath($this->hash));
     }
 
@@ -480,7 +492,12 @@ class File extends \Illuminate\Database\Eloquent\Model
     public function getPublicUrl()
     {
         $this->checkPublic();
-        return self::getBackend()->url(self::getPath($this->hash));
+
+        if(strtolower(config('filetools.storage.backend'))=='s3') {
+            return self::getBackend()->url(self::getPath($this->hash));
+        }
+
+        return route(config('filetools.router.namedPrefix').'.publicPreview', [$this->id, $this->hash]);
     }
 
     /**
@@ -499,14 +516,18 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function getPublicVisibility()
     {
-        $visibility = self::getBackend()->getVisibility(self::getPath($this->hash));
-        if ($visibility == 'public') {
-            $this->public = true;
+        if(strtolower(config('filetools.storage.backend'))=='s3') {
+            return$visibility = self::getBackend()->getVisibility(self::getPath($this->hash));
+            if ($visibility == 'public') {
+                $this->public = true;
+            } else {
+                $this->public = false;
+            }
+            $this->save();
+            return $visibility;
         } else {
-            $this->public = false;
+            $this->public ? 'public' : 'private';
         }
-        $this->save();
-        return $visibility;
     }
 
     /**
@@ -516,7 +537,11 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function setPublicVisibility($visibility = 'private')
     {
-        self::getBackend()->setVisibility(self::getPath($this->hash), $visibility);
+        if(strtolower(config('filetools.storage.backend'))=='s3') {
+            self::getBackend()->setVisibility(self::getPath($this->hash), $visibility);
+        }
+
+
         if ($visibility == 'public') {
             $this->public = true;
         } else {
@@ -577,6 +602,30 @@ class File extends \Illuminate\Database\Eloquent\Model
         return $this->attributes['hidden'];
     }
 
+    private function getLocalSignatureUrl($expiryMinutes = 600)
+    {
+        $expiry = time() + $expiryMinutes * 60;
+        $signature = $this->getSignatureForTimestamp($expiry);
+        return [
+            'expiry'=>$expiry,
+            'signature'=>$signature,
+            'urlSuffix'=>'?expiry='.$expiry.'&signature='.$signature,
+        ];
+    }
+
+    private function getSignatureForTimestamp($timestamp)
+    {
+        if($timestamp < time()) {
+            return false;
+        }
+        return md5($timestamp.'-'.$this->name.'-'.$this->mime.'-'.$this->size.'-'.$this->created_at);
+    }
+
+    public function checkSignatureForTimestamp($timestamp, $signature)
+    {
+        return $signature === $this->getSignatureForTimestamp($timestamp);
+    }
+
     /**
      * Gets the private, temporary url for a file
      * @param int $expiryMinutes
@@ -585,6 +634,10 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function getUrl($expiryMinutes = 600, $options = [])
     {
+        if(strtolower(config('filetools.storage.backend'))!='s3') {
+            return route(config('filetools.router.namedPrefix').'.publicPreview', [$this->id, $this->hash]).self::getLocalSignatureUrl($expiryMinutes)['urlSuffix'];
+        }
+
         if (!isset($options['ResponseContentType'])) {
             $options['ResponseContentType'] = $this->mime;
         }
@@ -608,6 +661,10 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function downloadUrl($expiryMinutes = 600, $options = [])
     {
+        if(strtolower(config('filetools.storage.backend'))!='s3') {
+            return route(config('filetools.router.namedPrefix').'.publicDownload', [$this->id, $this->hash]).self::getLocalSignatureUrl($expiryMinutes)['urlSuffix'];
+        }
+
         $options['ResponseContentDisposition'] = 'attachment; filename="' . $this->basename . '"';
 
         return $this->getUrl($expiryMinutes, $options);

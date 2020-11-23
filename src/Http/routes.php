@@ -20,3 +20,8 @@ $router->group(['middleware' => config('filetools.router.authMiddleware')], func
     $router->post('/hide', ['uses'=>'FilesController@hide', 'as'=>config('filetools.router.namedPrefix').'.hide']);
     $router->post('/toggleHidden', ['uses'=>'FilesController@toggleHidden', 'as'=>config('filetools.router.namedPrefix').'.toggleHidden']);
 });
+
+$router->group(['middleware' => config('filetools.router.guestMiddleware')], function ($router) {
+    $router->get('/preview/{fileId}/{fileHash}', ['uses' => 'FilesController@publicPreview', 'as' => config('filetools.router.namedPrefix').'.publicPreview']);
+    $router->get('/download/{fileId}/{fileHash}', ['uses' => 'FilesController@publicDownload', 'as' => config('filetools.router.namedPrefix').'.publicDownload']);
+});
