@@ -2,7 +2,7 @@
     "name": "nmirceac/file-tools",
     "type": "library",
     "description": "File Tools for Laravel",
-    "keywords": ["files","fileTools","image","digital ocean spaces","s3","laravel","laravel files"],
+    "keywords": ["files","fileTools","image","digital ocean spaces","s3","azure","azure blob storage","laravel","laravel files"],
     "homepage": "https://github.com/nmirceac/filesTools",
     "license": "proprietary",
     "authors": [
@@ -16,6 +16,7 @@
     "require": {
         "php": ">=5.4.0",
         "league/flysystem-aws-s3-v3": "^1.0",
+        "league/flysystem-azure-blob-storage": "^1.0",
         "phpunit/phpunit": "6 - 8"
     },
     "autoload": {
