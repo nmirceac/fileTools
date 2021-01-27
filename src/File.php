@@ -465,11 +465,51 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function serve()
     {
-        return response($this->getContent())
+        $content = $this->getContent();
+        $size = $this->size;
+        $returnCode = 200;
+        $responseRange = null;
+
+        // range support
+
+        $range = request()->header('range');
+        if($range and stripos($range, 'bytes')===0) {
+            $range = explode('-', mb_strcut($range, 6));
+
+            if($range[0]==0 and empty($range[1])) {
+                // nothing
+                $content = $content;
+                $responseRange = 'bytes 0-'.($size-1).'/'.$size;
+                $returnCode = 206;
+            } else {
+                $range[0] = min(max($range[0], 0), $this->size);
+                if(!empty($range[1])) {
+                    $range[1] = min(max($range[1], $range[0]), $this->size);
+                } else {
+                    $range[1] = $this->size;
+                }
+
+                $size = $range[1] - $range[0];
+                $content = mb_strcut($content, $range[0], $size);
+                $responseRange = 'bytes '.$range[0].'-'.($range[1]-1).'/'.$range[1];
+                $returnCode = 206;
+            }
+        }
+
+        // eo range support
+
+        $response = response($content, $returnCode)
+            ->header('Accept-Ranges', 'bytes')
             ->header('Content-Type', $this->mime)
             ->header('Content-Description', $this->name)
-            ->header('Content-Length', $this->size)
+            ->header('Content-Length', $size)
             ->header('Content-Disposition', 'inline; filename="' . $this->basename . '"');
+
+        if($responseRange) {
+            $response->header('Content-Range', $responseRange);
+        }
+
+        return $response;
     }
 
     /**

@@ -21,6 +21,11 @@ class FilesController extends \App\Http\Controllers\Controller
     public function publicPreview($id, $hash)
     {
         $file = \App\File::find($id);
+
+        if(is_null($file)) {
+            return abort(404);
+        }
+
         if($file->hash != $hash) {
             return abort(401);
         }
@@ -35,6 +40,14 @@ class FilesController extends \App\Http\Controllers\Controller
     public function publicDownload($id, $hash)
     {
         $file = \App\File::find($id);
+
+        if(is_null($file)) {
+            return abort(404);
+        }
+
+        if($file->hash != $hash) {
+            return abort(401);
+        }
 
         if(!$file->public and !$file->checkSignatureForTimestamp(request('expiry'), request('signature'))){
             return abort(401);
