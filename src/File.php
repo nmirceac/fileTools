@@ -57,6 +57,16 @@ class File extends \Illuminate\Database\Eloquent\Model
         return self::$backend;
     }
 
+    private static function checkMime($mime)
+    {
+        $mime = trim(strtolower($mime));
+        if($mime == 'image/svg') {
+            $mime = 'image/svg+xml';
+        }
+
+        return $mime;
+    }
+
     /**
      * Clears the storage all the files, metadata and associations
      * @throws \Exception
@@ -180,7 +190,7 @@ class File extends \Illuminate\Database\Eloquent\Model
         $file->hash = $metadata['hash'];
         $file->name = $metadata['name'];
         $file->extension = $metadata['extension'];
-        $file->mime = $metadata['mime'];
+        $file->mime = self::checkMime($metadata['mime']);
         $file->size = $metadata['size'];
         $file->metadata = $metadata;
 
