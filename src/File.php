@@ -730,7 +730,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     {
         if (is_null($this->relationship)) {
             $modelName = get_class($model);
-            $modelName = strtolower(substr($modelName, 1 + strrpos($modelName, '\\')));
+            $modelName = snake_case(substr($modelName, 1 + strrpos($modelName, '\\')));
 
             if (!method_exists($this, $modelName) and !method_exists($this, \Illuminate\Support\Str::plural($modelName))) {
                 throw new \Exception(self::class . ' missing relationship to model of type ' . get_class($model));
