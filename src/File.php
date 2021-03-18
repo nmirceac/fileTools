@@ -162,6 +162,46 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
     }
 
+    public static function tryToGetMimeMetadataBinaryToolPath($binaryTool)
+    {
+        exec('which '.$binaryTool, $binaryToolPath);
+        $binaryToolPath = reset($binaryToolPath);
+        if(empty($binaryToolPath)) {
+            return null;
+        }
+
+        return $binaryToolPath;
+    }
+
+    public static function tryToGetMimeMetadata(string $content, $extension, $mime = null)
+    {
+        if(empty($mime)) {
+            return false;
+        }
+
+        $mimeRepresentativePart = last(explode('/', $mime));
+        $mimeMethod = str_replace(['/', '-'], '_', $mime);
+        $mimeMethodPath = __DIR__.'/../metadata/'.$mimeMethod.'.php';
+
+        if(file_exists($mimeMethodPath)) {
+            require_once($mimeMethodPath);
+        }
+        if(function_exists($mimeMethod)) {
+            $mimeMetadata = $mimeMethod($content, $extension);
+        } else {
+            return false;
+        }
+
+        if(is_null($mimeMetadata)) {
+            return false;
+        }
+
+        return [
+            'type'=>$mimeRepresentativePart,
+            'data'=>$mimeMetadata,
+        ];
+    }
+
     /**
      * Creates a file
      * @param array $metadata
@@ -189,9 +229,15 @@ class File extends \Illuminate\Database\Eloquent\Model
         $file = new static();
         $file->hash = $metadata['hash'];
         $file->name = $metadata['name'];
-        $file->extension = $metadata['extension'];
+        $file->extension = strtolower($metadata['extension']);
         $file->mime = self::checkMime($metadata['mime']);
         $file->size = $metadata['size'];
+
+        $mimeMetadata = self::tryToGetMimeMetadata($contents, $file->extension, $file->mime);
+        if($mimeMetadata) {
+            $metadata[$mimeMetadata['type']] = $mimeMetadata['data'];
+        }
+
         $file->metadata = $metadata;
 
         $inStore = self::getBackend()->has(self::getPath($file->hash));
