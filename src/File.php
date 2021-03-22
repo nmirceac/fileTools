@@ -492,10 +492,39 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function delete($skipChecks = false)
     {
-        if (!$skipChecks && static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
+        $hasSoftDeletes = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses($this));
+
+        if (!$hasSoftDeletes and !$skipChecks and static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
             self::deleteFromBackend($this->hash);
         }
         return parent::delete();
+    }
+
+    /**
+     * Force deletes a file
+     * @return bool
+     * @throws \Exception
+     */
+    public function forceDelete($skipChecks = false)
+    {
+        if (!$skipChecks and static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
+            self::deleteFromBackend($this->hash);
+        }
+
+        $hasSoftDeletes = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses($this));
+        if($hasSoftDeletes) {
+            $this->forceDeleting = true;
+
+            return tap($this->delete(), function ($deleted) {
+                $this->forceDeleting = false;
+
+                if ($deleted) {
+                    $this->fireModelEvent('forceDeleted', false);
+                }
+            });
+        } else {
+            return parent::delete();
+        }
     }
 
     private static function deleteFromBackend($hash)
