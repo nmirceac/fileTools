@@ -23,11 +23,11 @@ trait HasFiles {
     public function filesRelationship() {
         return $this->morphToMany(\App\File::class,
             'association',
-            'file_associations',
+            \App\File::FILE_ASSOCIATIONS_PIVOT_TABLE,
             'association_id',
             'file_id'
         )->withPivot(\App\File::$withPivot)
-            ->orderBy('file_associations.order', 'ASC');
+            ->orderBy(\App\File::FILE_ASSOCIATIONS_PIVOT_TABLE.'.order', 'ASC');
     }
 
     /**

@@ -19,6 +19,8 @@ class File extends \Illuminate\Database\Eloquent\Model
     protected static $backend = null;
     protected static $root = null;
 
+    const FILE_ASSOCIATIONS_PIVOT_TABLE = 'file_associations';
+
     /**
      * Finds a file by id
      * @param $id
@@ -449,15 +451,32 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Gets associations query
+     * @return \Illuminate\Database\Query\Builder
+     */
+    private function getAssociationsQuery()
+    {
+        return $this->getConnection()
+            ->table(static::FILE_ASSOCIATIONS_PIVOT_TABLE)
+            ->where('file_id', $this->id);
+    }
+
+    /**
      * Checks how many times a file is used within the application
      * @return integer
      */
     public function usageCount()
     {
-        return $this->getConnection()
-            ->table('file_associations')
-            ->where('file_id', $this->id)
-            ->count();
+        return $this->getAssociationsQuery()->count();
+    }
+
+    /**
+     * Gets associations
+     * @return integer
+     */
+    public function getAssociations()
+    {
+        return $this->getAssociationsQuery()->get(['association_id', 'association_type']);
     }
 
     /**
@@ -492,7 +511,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     public function delete($skipChecks = false)
     {
-        $hasSoftDeletes = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses($this));
+        $hasSoftDeletes = in_array(\FileTools\HasSoftDeletes::class, class_uses($this));
 
         if (!$hasSoftDeletes and !$skipChecks and static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
             self::deleteFromBackend($this->hash);
@@ -500,31 +519,36 @@ class File extends \Illuminate\Database\Eloquent\Model
         return parent::delete();
     }
 
-    /**
-     * Force deletes a file
-     * @return bool
-     * @throws \Exception
-     */
-    public function forceDelete($skipChecks = false)
+    ///**
+    // * Force deletes a file
+    // * @return bool
+    // * @throws \Exception
+    // */
+    //public function forceDelete($skipChecks = false)
+    //{
+    //    if (!$skipChecks and static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
+    //        self::deleteFromBackend($this->hash);
+    //    }
+    //
+    //    $hasSoftDeletes = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses($this));
+    //    if($hasSoftDeletes) {
+    //        $this->forceDeleting = true;
+    //
+    //        return tap($this->delete(), function ($deleted) {
+    //            $this->forceDeleting = false;
+    //
+    //            if ($deleted) {
+    //                $this->fireModelEvent('forceDeleted', false);
+    //            }
+    //        });
+    //    } else {
+    //        return parent::delete();
+    //    }
+    //}
+
+    public static function deleteFromBackendForTrait($hash)
     {
-        if (!$skipChecks and static::where('id', '!=', $this->id)->where('hash', $this->hash)->count() == 0) {
-            self::deleteFromBackend($this->hash);
-        }
-
-        $hasSoftDeletes = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses($this));
-        if($hasSoftDeletes) {
-            $this->forceDeleting = true;
-
-            return tap($this->delete(), function ($deleted) {
-                $this->forceDeleting = false;
-
-                if ($deleted) {
-                    $this->fireModelEvent('forceDeleted', false);
-                }
-            });
-        } else {
-            return parent::delete();
-        }
+        return self::deleteFromBackend($hash);
     }
 
     private static function deleteFromBackend($hash)
