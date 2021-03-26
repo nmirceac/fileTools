@@ -2,6 +2,7 @@
 
 $router->group(['middleware' => config('filetools.router.authMiddleware')], function ($router) {
     $router->get('/preview/{fileId}', ['uses' => 'FilesController@preview', 'as' => config('filetools.router.namedPrefix').'.preview']);
+    $router->get('/previewPage/{fileId}/{page}', ['uses' => 'FilesController@previewPage', 'as' => config('filetools.router.namedPrefix').'.previewPage']);
     $router->get('/download/{fileId}', ['uses' => 'FilesController@download', 'as' => config('filetools.router.namedPrefix').'.download']);
 
     $router->post('/upload', ['uses' => 'FilesController@upload', 'as' => config('filetools.router.namedPrefix').'.upload']);

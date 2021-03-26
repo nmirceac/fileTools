@@ -7,7 +7,7 @@ function application_pdf($contents, $extension)
         return null;
     }
 
-    $filePath = tempnam('/tmp', 'mimeMetadata').'.'.$extension;
+    $filePath = \FileTools\File::getMimeMetadataTemporaryFilePath($extension);
     file_put_contents($filePath, $contents);
 
     $excludedParams = [
@@ -21,6 +21,7 @@ function application_pdf($contents, $extension)
     $metadata = [];
 
     exec($binary.' '.$filePath, $output);
+    unlink($filePath);
     foreach($output as $line) {
         $param = str_replace(' ', '_', strtolower(trim(substr($line, 0, strpos($line, ':')))));
         $value = trim(substr($line, 1 + strpos($line, ':')));

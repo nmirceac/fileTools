@@ -164,7 +164,18 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
     }
 
-    public static function tryToGetMimeMetadataBinaryToolPath($binaryTool)
+    public static function getMimeMetadataTemporaryFilePath(string $extension = '')
+    {
+        $filePath = tempnam('/tmp', 'mimeMetadata');
+        if(!empty($extension)) {
+            $filePath.='.'.$extension;
+        }
+
+
+        return $filePath;
+    }
+
+    public static function tryToGetMimeMetadataBinaryToolPath(string $binaryTool)
     {
         exec('which '.$binaryTool, $binaryToolPath);
         $binaryToolPath = reset($binaryToolPath);
@@ -175,7 +186,7 @@ class File extends \Illuminate\Database\Eloquent\Model
         return $binaryToolPath;
     }
 
-    public static function tryToGetMimeMetadata(string $content, $extension, $mime = null)
+    public static function tryToGetMimeMetadata(string $content, string $extension, string $mime = null)
     {
         if(empty($mime)) {
             return false;
@@ -968,5 +979,57 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
 
         $model->reorderFilesByRole([], $role);
+    }
+
+    public function getPdfPage(int $pageNumber=1, int $dpi=150, array $crop = [], string $format='png')
+    {
+        $cacheKey = 'getPdfPage-'.$this->id.'-'.json_encode(func_get_args());
+        $image = \Cache::get($cacheKey);
+        if(is_null($image)) {
+            $content = $this->getContent();
+            $hash = $this->hash;
+            $pdfFile = '/tmp/'.$hash.'-'.$dpi.'-'.$pageNumber.'.fpdf.pdf';
+            $imageFile = '/tmp/'.$hash.'-'.$dpi.'-'.$pageNumber.'.fpdf';
+
+            if(strtolower($format)!='png') {
+                $format = 'jpeg';
+            }
+
+
+            file_put_contents($pdfFile, $content);
+            //if(!empty($crop)) {
+            //    exec('pdftoppm -f '.$pageNumber.' -l '.$pageNumber.' -x '.$crop[0].' -y '.$crop[1].' -W '.$crop[2].' -H '.$crop[3].' -singlefile -r '.$dpi.' -'.$format.' '.$pdfFile.' '.$imageFile);
+            //} else {
+                exec('pdftoppm -f '.$pageNumber.' -l '.$pageNumber.' -singlefile -r '.$dpi.' -'.$format.' '.$pdfFile.' '.$imageFile);
+            //}
+
+            if($format=='png') {
+                $imageFile.='.png';
+            } else {
+                $imageFile.='.jpg';
+            }
+
+
+            $image = file_get_contents($imageFile);
+
+            unlink($pdfFile);
+            unlink($imageFile);
+
+            if(!empty($crop)) {
+                $image = \ColorTools\Image::create($image);
+                $crop[0] /= 100;
+                $crop[1] /= 100;
+                $crop[2] /= 100;
+                $crop[3] /= 100;
+                $image = $image->doPreciseCrop($crop[0], $crop[1], $crop[2], $crop[3]);
+                $image = $image->getImageContent($format);
+            }
+
+            if((int) config('filetools.pdfPagePreviewCaching') > 0) {
+                \Cache::put($cacheKey, $image, (int) config('filetools.pdfPagePreviewCaching'));
+            }
+        }
+
+        return $image;
     }
 }

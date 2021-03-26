@@ -10,6 +10,34 @@ class FilesController extends \App\Http\Controllers\Controller
         return \App\File::find($id)->serve();
     }
 
+    public function previewPage($id, $page)
+    {
+        $file = \App\File::find($id);
+        if($file->mime != 'application/pdf') {
+            return abort(403);
+        }
+
+        $dpi = request('dpi', 50);
+        $format = strtolower(request('format', 'png'));
+        if($format!='png') {
+            $format = 'jpeg';
+        }
+        $crop = request('crop');
+        if(empty($crop)) {
+            $crop=[];
+        } else {
+            $crop = explode('-', $crop);
+        }
+
+        $image = $file->getPdfPage($page, $dpi, $crop, $format);
+
+        return response($image)
+            ->header('Content-Type', 'image/'.$format)
+            ->header('Content-Description', $file->name.' - page '.$page)
+            ->header('Content-Length', strlen($image))
+            ->header('Content-Disposition', 'inline; filename="' . $file->name.' - page '.$page . '"');
+    }
+
     public function download($id)
     {
         if(strtolower(config('filetools.storage.backend')) == 's3') {

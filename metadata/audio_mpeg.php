@@ -7,7 +7,7 @@ function audio_mpeg($contents, $extension)
         return null;
     }
 
-    $filePath = tempnam('/tmp', 'mimeMetadata').'.'.$extension;
+    $filePath = \FileTools\File::getMimeMetadataTemporaryFilePath($extension);
     file_put_contents($filePath, $contents);
 
     $excludedParams = [
@@ -18,6 +18,7 @@ function audio_mpeg($contents, $extension)
     $metadata = [];
 
     exec($binary.' '.$filePath, $output);
+    unlink($filePath);
     foreach($output as $line) {
         if(empty(trim($line))) {
             continue;
