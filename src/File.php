@@ -981,15 +981,17 @@ class File extends \Illuminate\Database\Eloquent\Model
         $model->reorderFilesByRole([], $role);
     }
 
-    public function getPdfPage(int $pageNumber=1, int $dpi=150, array $crop = [], string $format='png')
+    public function getPdfPage(int $pageNumber=1, int $dpi=150, array $crop = [], string $format='png', array $filters = [], bool $getAsColorToolsImage = false)
     {
         $cacheKey = 'getPdfPage-'.$this->id.'-'.json_encode(func_get_args());
         $image = \Cache::get($cacheKey);
         if(is_null($image)) {
             $content = $this->getContent();
             $hash = $this->hash;
-            $pdfFile = '/tmp/'.$hash.'-'.$dpi.'-'.$pageNumber.'.fpdf.pdf';
-            $imageFile = '/tmp/'.$hash.'-'.$dpi.'-'.$pageNumber.'.fpdf';
+            $filePath = self::getMimeMetadataTemporaryFilePath('fileToolsPdfImage').'-'.$this->id.'-'.$pageNumber.'-'.$dpi;
+
+            $pdfFile = $filePath.'.pdf';
+            $imageFile = $filePath;
 
             if(strtolower($format)!='png') {
                 $format = 'jpeg';
@@ -1012,17 +1014,35 @@ class File extends \Illuminate\Database\Eloquent\Model
 
             $image = file_get_contents($imageFile);
 
-            unlink($pdfFile);
-            unlink($imageFile);
+            if(file_exists($pdfFile)) {
+                unlink($pdfFile);
+            }
+            if(file_exists($imageFile)) {
+                unlink($imageFile);
+            }
 
-            if(!empty($crop)) {
+            if(!empty($crop) or $getAsColorToolsImage) {
                 $image = \ColorTools\Image::create($image);
-                $crop[0] /= 100;
-                $crop[1] /= 100;
-                $crop[2] /= 100;
-                $crop[3] /= 100;
-                $image = $image->doPreciseCrop($crop[0], $crop[1], $crop[2], $crop[3]);
-                $image = $image->getImageContent($format);
+
+                if($crop) {
+                    $crop[0] /= 100;
+                    $crop[1] /= 100;
+                    $crop[2] /= 100;
+                    $crop[3] /= 100;
+                    $image = $image->doPreciseCrop($crop[0], $crop[1], $crop[2], $crop[3]);
+
+                    foreach($filters as $filter=>$paramters) {
+                        $image = $image->applyFilter($filter, $paramters);
+                    }
+                }
+
+
+            }
+
+            if(!$getAsColorToolsImage) {
+                if($image instanceof \ColorTools\Image) {
+                    $image = $image->getImageContent($format);
+                }
             }
 
             if((int) config('filetools.pdfPagePreviewCaching') > 0) {
@@ -1031,5 +1051,43 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
 
         return $image;
+    }
+
+    public function getPdfPageText(int $pageNumber=1, int $dpi=150, array $crop = [], string $format='png')
+    {
+        $cacheKey = 'getPdfPageText-'.$this->id.'-'.json_encode(func_get_args());
+        $text = \Cache::get($cacheKey);
+        if(is_null($text)) {
+            $content = $this->getContent();
+            $hash = $this->hash;
+            $filePath = self::getMimeMetadataTemporaryFilePath('fileToolsPdfText').'-'.$this->id.'-'.$pageNumber.'-'.$dpi;
+
+            $pdfFile = $filePath.'.pdf';
+            $textFile = $filePath.'.txt';
+
+
+            file_put_contents($pdfFile, $content);
+            if(!empty($crop)) {
+                exec('pdftotext -f '.$pageNumber.' -l '.$pageNumber.' -x '.$crop[0].' -y '.$crop[1].' -W '.$crop[2].' -H '.$crop[3].' '.$pdfFile.' '.$textFile);
+            } else {
+                exec('pdftotext -f '.$pageNumber.' -l '.$pageNumber.' '.$pdfFile.' '.$textFile);
+            }
+
+            $text = trim(file_get_contents($textFile), "\r\n\t\f ");
+
+            if(file_exists($pdfFile)) {
+                unlink($pdfFile);
+            }
+            if(file_exists($textFile)) {
+                unlink($textFile);
+            }
+
+
+            if((int) config('filetools.pdfPagePreviewCaching') > 0) {
+                \Cache::put($cacheKey, $text, (int) config('filetools.pdfPagePreviewCaching'));
+            }
+        }
+
+        return $text;
     }
 }

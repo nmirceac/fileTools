@@ -29,7 +29,20 @@ class FilesController extends \App\Http\Controllers\Controller
             $crop = explode('-', $crop);
         }
 
-        $image = $file->getPdfPage($page, $dpi, $crop, $format);
+        $filters = request('filters');
+        if(!empty($filters)) {
+            $filtersFromString = explode('|', $filters);
+            $filters = [];
+            foreach($filtersFromString as $filterParams) {
+                $filterParams = explode(' ', $filterParams);
+                $filterType = array_shift($filterParams);
+                $filters[$filterType] = $filterParams;
+            }
+        } else {
+            $filters = [];
+        }
+
+        $image = $file->getPdfPage($page, $dpi, $crop, $format, $filters);
 
         return response($image)
             ->header('Content-Type', 'image/'.$format)
