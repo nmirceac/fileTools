@@ -17,7 +17,7 @@
         "php": ">=5.4.0",
         "league/flysystem-aws-s3-v3": "^1.0",
         "league/flysystem-azure-blob-storage": "^1.0",
-        "phpunit/phpunit": "6 - 8"
+        "phpunit/phpunit": "6 - 9"
     },
     "autoload": {
         "psr-4": {
