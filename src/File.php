@@ -11,7 +11,7 @@ class File extends \Illuminate\Database\Eloquent\Model
     /**
      * @var null
      */
-    private $relationship = null;
+    private $relationship = [];
 
     public static $withPivot = ['order', 'role', 'details'];
     protected $appends = ['basename', 'details'];
@@ -838,8 +838,13 @@ class File extends \Illuminate\Database\Eloquent\Model
      */
     private function checkRelationship($model)
     {
-        if (is_null($this->relationship)) {
-            $modelName = get_class($model);
+        if(!is_object($model)) {
+            throw new \Exception('Passed model variable is not an object');
+        }
+
+        $modelName = get_class($model);
+
+        if (!isset($this->relationship[$modelName])) {
             $modelName = snake_case(substr($modelName, 1 + strrpos($modelName, '\\')));
 
             if (!method_exists($this, $modelName) and !method_exists($this, \Illuminate\Support\Str::plural($modelName))) {
@@ -851,10 +856,10 @@ class File extends \Illuminate\Database\Eloquent\Model
             }
 
 
-            $this->relationship = $model->filesRelationship();
+            $this->relationship[$modelName] = $model->filesRelationship();
         }
 
-        return $this->relationship;
+        return $this->relationship[$modelName];
     }
 
     /**
@@ -866,7 +871,7 @@ class File extends \Illuminate\Database\Eloquent\Model
      * @return mixed
      * @throws \Exception
      */
-    public function attach($model, $role = 'files', $order = 0, $details = [])
+    public function attach($model, $role = 'files', $order = 0, $details = [], $debug=false)
     {
         $relationship = $this->checkRelationship($model);
 
@@ -979,6 +984,20 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
 
         $model->reorderFilesByRole([], $role);
+    }
+
+    public function clearForModel($model)
+    {
+        $relationship = $this->checkRelationship($model);
+        $relationship->detach();
+    }
+
+    public function clearAllAssociations()
+    {
+        return \DB::connection($this->connection)
+            ->table(self::FILE_ASSOCIATIONS_PIVOT_TABLE)
+            ->where('file_id', $this->id)
+            ->delete();
     }
 
     public function getPdfPage(int $pageNumber=1, int $dpi=150, array $crop = [], string $format='png', array $filters = [], bool $getAsColorToolsImage = false)
