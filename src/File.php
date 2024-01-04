@@ -594,7 +594,7 @@ class File extends \Illuminate\Database\Eloquent\Model
 
         $range = request()->header('range');
         if($range and stripos($range, 'bytes')===0) {
-            $range = explode('-', mb_strcut($range, 6));
+            $range = explode('-', substr($range, 6));
 
             if($range[0]==0 and empty($range[1])) {
                 // nothing

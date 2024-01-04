@@ -17,17 +17,25 @@ trait HasFiles {
         return $this->filesRelationship();
     }
 
-    /**
-     * @return mixed
-     */
-    public function filesRelationship() {
+    private function getBaseFileRelationship()
+    {
         return $this->morphToMany(\App\File::class,
             'association',
             \App\File::FILE_ASSOCIATIONS_PIVOT_TABLE,
             'association_id',
             'file_id'
-        )->withPivot(\App\File::$withPivot)
-            ->orderBy(\App\File::FILE_ASSOCIATIONS_PIVOT_TABLE.'.order', 'ASC');
+        )->withPivot(\App\File::$withPivot);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function filesRelationship() {
+        return $this->getBaseFileRelationship()->orderBy(\App\File::FILE_ASSOCIATIONS_PIVOT_TABLE.'.order', 'ASC');
+    }
+
+    public function filesRelationshipReversed() {
+        return $this->getBaseFileRelationship()->orderBy(\App\File::FILE_ASSOCIATIONS_PIVOT_TABLE.'.order', 'DESC');
     }
 
     /**
@@ -36,16 +44,31 @@ trait HasFiles {
      */
     public function fileByRole($role)
     {
+        return $this->firstFileByRole($role);
+    }
+
+    public function firstFileByRole($role)
+    {
         return $this->filesByRole($role)->first();
+    }
+
+    public function latestFileByRole($role)
+    {
+        return $this->filesByRole($role, true)->first();
     }
 
     /**
      * @param $role
      * @return mixed
      */
-    public function filesByRole($role)
+    public function filesByRole($role, $reversed = false)
     {
-        return $this->filesRelationship()->wherePivot('role', $role);
+        if($reversed) {
+            $query = $this->filesRelationshipReversed();
+        } else {
+            $query = $this->filesRelationship();
+        }
+        return $query->wherePivot('role', $role);
     }
 
     /**
