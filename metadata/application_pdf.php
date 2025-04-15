@@ -20,7 +20,7 @@ function application_pdf($contents, $extension)
 
     $metadata = [];
 
-    exec($binary.' '.$filePath, $output);
+    exec($binary.' '.$filePath.' 2>/dev/null', $output);
     unlink($filePath);
     foreach($output as $line) {
         $param = str_replace(' ', '_', strtolower(trim(substr($line, 0, strpos($line, ':')))));

@@ -142,6 +142,15 @@ class File extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Gets header safe file's basename
+     * @return string
+     */
+    public function getSafeBasenameAttribute()
+    {
+        return $this->rfc6266_encode($this->basename);
+    }
+
+    /**
      * Gets the file's details for the association
      * @param $value
      * @return mixed
@@ -786,12 +795,6 @@ class File extends \Illuminate\Database\Eloquent\Model
         return $signature === $this->getSignatureForTimestamp($timestamp);
     }
 
-    /**
-     * Gets the private, temporary url for a file
-     * @param int $expiryMinutes
-     * @param array $options
-     * @return mixed
-     */
     public function getUrl($expiryMinutes = 600, $options = [])
     {
         if(strtolower(config('filetools.storage.backend'))!='s3') {
@@ -807,10 +810,10 @@ class File extends \Illuminate\Database\Eloquent\Model
         }
 
         if (!isset($options['ResponseContentDisposition'])) {
-            $options['ResponseContentDisposition'] = 'inline; filename="' . $this->basename . '"';
+            $options['ResponseContentDisposition'] = 'inline; filename="' . $this->safe_basename . '"';
         }
 
-        return self::getBackend()->temporaryUrl(self::getPath($this->hash), '+' . $expiryMinutes . ' minutes', $options);
+        return static::getBackend()->temporaryUrl(self::getPath($this->hash), '+' . $expiryMinutes . ' minutes', $options);
     }
 
     /**
@@ -825,9 +828,23 @@ class File extends \Illuminate\Database\Eloquent\Model
             return route(config('filetools.router.namedPrefix').'.publicDownload', [$this->id, $this->hash]).self::getLocalSignatureUrl($expiryMinutes)['urlSuffix'];
         }
 
-        $options['ResponseContentDisposition'] = 'attachment; filename="' . $this->basename . '"';
+        $options['ResponseContentDisposition'] = 'attachment; filename="' . $this->safe_basename . '"';
 
         return $this->getUrl($expiryMinutes, $options);
+    }
+
+    public function rfc6266_encode($string) {
+        $out = '';
+        for( $i=0,$l=strlen($string); $i<$l; ++$i ) {
+            $o = ord($string[$i]);
+            if( $o >= 127 ) {
+                $out .= sprintf('%%%02x', $o);
+            } else {
+                $out .= $string[$i];
+            }
+        }
+
+        return $out;
     }
 
     /**
